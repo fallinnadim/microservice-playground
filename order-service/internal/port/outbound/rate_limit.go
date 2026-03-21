@@ -2,7 +2,7 @@ package outbound
 
 import "context"
 
-type RateLimitRepository interface {
-	GetBucket(ctx context.Context, key string) (tokens int, lastRefill int64, err error)
-	SetBucket(ctx context.Context, key string, tokens int, lastRefill int64) error
+type RateLimitService interface {
+	GetBucket(ctx context.Context, key string) (tokens float64, lastRefill int64, err error)
+	SetBucket(ctx context.Context, key string, tokens float64, lastRefill int64) error
 }

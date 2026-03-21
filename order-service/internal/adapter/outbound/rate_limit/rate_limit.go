@@ -8,15 +8,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type RateLimitRedisRepository struct {
+type RateLimitAdapter struct {
 	rdb *redis.Client
 }
 
-func NewRateLimitRedisRepository(rdb *redis.Client) *RateLimitRedisRepository {
-	return &RateLimitRedisRepository{rdb: rdb}
+func NewRateLimitAdapter(rdb *redis.Client) *RateLimitAdapter {
+	return &RateLimitAdapter{rdb: rdb}
 }
 
-func (r *RateLimitRedisRepository) GetBucket(ctx context.Context, key string) (int, int64, error) {
+func (r *RateLimitAdapter) GetBucket(ctx context.Context, key string) (float64, int64, error) {
 	val, err := r.rdb.HGetAll(ctx, key).Result()
 	if err != nil {
 		return 0, 0, err
@@ -26,14 +26,14 @@ func (r *RateLimitRedisRepository) GetBucket(ctx context.Context, key string) (i
 		return 10, time.Now().Unix(), nil
 	}
 
-	tokens, _ := strconv.Atoi(val["tokens"])
+	tokens, _ := strconv.ParseFloat(val["tokens"], 64)
 	lastRefill, _ := strconv.ParseInt(val["last_refill"], 10, 64)
 
 	return tokens, lastRefill, nil
 }
 
-func (r *RateLimitRedisRepository) SetBucket(ctx context.Context, key string, tokens int, lastRefill int64) error {
-	return r.rdb.HSet(ctx, key, map[string]interface{}{
+func (r *RateLimitAdapter) SetBucket(ctx context.Context, key string, tokens float64, lastRefill int64) error {
+	return r.rdb.HSet(ctx, key, map[string]any{
 		"tokens":      tokens,
 		"last_refill": lastRefill,
 	}).Err()

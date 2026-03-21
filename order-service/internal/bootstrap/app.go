@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"github.com/fallinnadim/order-service/config"
 	httpAdapter "github.com/fallinnadim/order-service/internal/adapter/inbound/http"
+	"github.com/fallinnadim/order-service/internal/adapter/outbound/auth"
 	"github.com/fallinnadim/order-service/internal/adapter/outbound/auth/jwt"
 	ratelimit "github.com/fallinnadim/order-service/internal/adapter/outbound/rate_limit"
 	"github.com/fallinnadim/order-service/internal/infrastructure"
@@ -24,19 +25,17 @@ func NewApp(cfg *config.Config) (*App, error) {
 	})
 	db := infrastructure.NewPostgres(cfg.DbUrl, log)
 	redis := infrastructure.NewRedis(cfg.RedisUrl, log)
-	jwtAdapter := jwt.NewJWTAuthAdapter(cfg.JWTSecret)
-	rateLimitRepository := ratelimit.NewRateLimitRedisRepository(redis)
-	authUC := usecase.NewAuthUsecase(jwtAdapter)
-	rateLimitCapacity := 10
-	rateLimitRefillRate := 1
-
+	rateLimitAdapter := ratelimit.NewRateLimitAdapter(redis)
+	userRepo := auth.NewUserRepository(db)
+	authAdapter := jwt.NewJWTAuthAdapter(cfg.JWTSecret, cfg.JWTDuration)
+	authUC := usecase.NewAuthUsecase(authAdapter, userRepo)
+	rateLimitRefillRate := float64(cfg.RateLimitPerMinute) / 60.0
 	rateLimitUC := usecase.NewRateLimitUsecase(
-		rateLimitRepository,
-		rateLimitCapacity,
+		rateLimitAdapter,
+		cfg.RateLimitCapacity,
 		rateLimitRefillRate,
 	)
 	pingUC := usecase.NewPingUsecase(db)
-
 	handler := httpAdapter.NewHandler(
 		pingUC,
 		authUC,

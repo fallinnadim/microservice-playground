@@ -1,7 +1,17 @@
 package outbound
 
-import "github.com/fallinnadim/order-service/internal/domain"
+import (
+	"context"
 
-type AuthService interface {
+	"github.com/fallinnadim/order-service/internal/domain"
+)
+
+type AuthTokenService interface {
 	ValidateToken(token string) (*domain.Claims, error)
+	GenerateToken(userID string) (string, error)
+}
+
+type UserRepository interface {
+	FindByEmail(ctx context.Context, email string) (*domain.User, error)
+	CreateNewUser(ctx context.Context, email string, password string) error
 }

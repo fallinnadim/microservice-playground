@@ -2,60 +2,56 @@ package usecase
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/fallinnadim/order-service/internal/port/outbound"
 )
 
 type RateLimitUsecase struct {
-	repo       outbound.RateLimitRepository
+	service    outbound.RateLimitService
 	capacity   int
-	refillRate int
+	refillRate float64
 }
 
-func NewRateLimitUsecase(repo outbound.RateLimitRepository, capacity, refillRate int) *RateLimitUsecase {
+func NewRateLimitUsecase(service outbound.RateLimitService, capacity int, refillRate float64) *RateLimitUsecase {
 	return &RateLimitUsecase{
-		repo:       repo,
-		capacity:   capacity,
-		refillRate: refillRate,
+		service, capacity, refillRate,
 	}
 }
-
 func (uc *RateLimitUsecase) Allow(ctx context.Context, userID string) (bool, error) {
 	key := "ratelimit:" + userID
 
-	tokens, lastRefill, err := uc.repo.GetBucket(ctx, key)
+	tokens, lastRefill, err := uc.service.GetBucket(ctx, key)
 	if err != nil {
 		return false, err
 	}
 
-	now := time.Now().Unix()
+	now := time.Now().UnixMilli()
 
-	elapsed := now - lastRefill
-	refilled := int(elapsed) * uc.refillRate
-
-	if refilled > 0 {
-		tokens = min(uc.capacity, tokens+refilled)
+	if lastRefill == 0 {
+		tokens = float64(uc.capacity)
 		lastRefill = now
 	}
 
-	if tokens <= 0 {
+	elapsed := float64(now-lastRefill) / 1000.0
+
+	tokens = math.Min(
+		float64(uc.capacity),
+		tokens+(elapsed*uc.refillRate),
+	)
+
+	if tokens < 1.0 {
+		_ = uc.service.SetBucket(ctx, key, tokens, now)
 		return false, nil
 	}
 
-	tokens--
+	tokens -= 1.0
 
-	err = uc.repo.SetBucket(ctx, key, tokens, lastRefill)
+	err = uc.service.SetBucket(ctx, key, tokens, now)
 	if err != nil {
 		return false, err
 	}
 
 	return true, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

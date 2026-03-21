@@ -10,5 +10,9 @@ func NewRouter(h *Handler) *gin.Engine {
 		RateLimit(h.rateLimitUC, h.log),
 		h.Ping)
 
+	r.POST("/login", h.Login)
+
+	r.POST("/register", h.Register)
+
 	return r
 }

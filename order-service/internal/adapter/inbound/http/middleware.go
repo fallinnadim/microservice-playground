@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthRequired(authUsecase outbound.AuthService, log *slog.Logger) gin.HandlerFunc {
+func AuthRequired(authUsecase outbound.AuthTokenService, log *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 
