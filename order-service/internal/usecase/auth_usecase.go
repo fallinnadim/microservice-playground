@@ -3,33 +3,25 @@ package usecase
 import (
 	"context"
 	"errors"
-
-	"github.com/fallinnadim/order-service/internal/domain"
 	"github.com/fallinnadim/order-service/internal/port/inbound"
 	"github.com/fallinnadim/order-service/internal/port/outbound"
 )
 
 type AuthUsecase struct {
-	authService outbound.AuthTokenService
-	userRepo    outbound.UserRepository
+	JWTAdapter    outbound.JWTAuthPort
+	Argon2Adapter outbound.Argon2Port
+	userRepo      outbound.UserRepository
 }
 
 func NewAuthUsecase(
-	authService outbound.AuthTokenService,
+	jwtAdapter outbound.JWTAuthPort,
+	argon2Adapter outbound.Argon2Port,
 	userRepo outbound.UserRepository,
 ) *AuthUsecase {
-	return &AuthUsecase{authService, userRepo}
+	return &AuthUsecase{jwtAdapter, argon2Adapter, userRepo}
 }
 
-func (u *AuthUsecase) ValidateToken(token string) (*domain.Claims, error) {
-	return u.authService.ValidateToken(token)
-}
-
-func (u *AuthUsecase) GenerateToken(userId string) (string, error) {
-	return u.authService.GenerateToken(userId)
-}
-
-func (u *AuthUsecase) Login(ctx context.Context, req inbound.LoginRequest) (*inbound.LoginResponse, error) {
+func (u *AuthUsecase) Login(ctx context.Context, req inbound.LoginInput) (*inbound.LoginOutput, error) {
 	user, err := u.userRepo.FindByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, err
@@ -37,23 +29,33 @@ func (u *AuthUsecase) Login(ctx context.Context, req inbound.LoginRequest) (*inb
 	if user == nil {
 		return nil, errors.New("user not found")
 	}
-
-	token, err := u.GenerateToken(user.ID)
+	ok, err := u.Argon2Adapter.ComparePasswordAndHash(req.Password, user.Password)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("invalid password")
+	}
+	token, err := u.JWTAdapter.GenerateToken(user.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &inbound.LoginResponse{
+	return &inbound.LoginOutput{
 		Token: token,
 	}, nil
 }
 
-func (u *AuthUsecase) Register(ctx context.Context, req inbound.RegisterRequest) error {
+func (u *AuthUsecase) Register(ctx context.Context, req inbound.LoginInput) error {
 	user, _ := u.userRepo.FindByEmail(ctx, req.Email)
 	if user != nil {
 		return errors.New("email already exist")
 	}
-	errNewUser := u.userRepo.CreateNewUser(ctx, req.Email, req.Password)
+	hashedPassword, err := u.Argon2Adapter.GenerateFromPassword(req.Password)
+	if err != nil {
+		return errors.New("failed to hash")
+	}
+	errNewUser := u.userRepo.CreateNewUser(ctx, req.Email, hashedPassword)
 	if errNewUser != nil {
 		return errNewUser
 	}

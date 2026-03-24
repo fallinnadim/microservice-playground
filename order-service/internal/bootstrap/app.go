@@ -4,6 +4,7 @@ import (
 	"github.com/fallinnadim/order-service/config"
 	httpAdapter "github.com/fallinnadim/order-service/internal/adapter/inbound/http"
 	"github.com/fallinnadim/order-service/internal/adapter/outbound/auth"
+	"github.com/fallinnadim/order-service/internal/adapter/outbound/auth/argon2"
 	"github.com/fallinnadim/order-service/internal/adapter/outbound/auth/jwt"
 	ratelimit "github.com/fallinnadim/order-service/internal/adapter/outbound/rate_limit"
 	"github.com/fallinnadim/order-service/internal/infrastructure"
@@ -25,10 +26,13 @@ func NewApp(cfg *config.Config) (*App, error) {
 	})
 	db := infrastructure.NewPostgres(cfg.DbUrl, log)
 	redis := infrastructure.NewRedis(cfg.RedisUrl, log)
+
 	rateLimitAdapter := ratelimit.NewRateLimitAdapter(redis)
 	userRepo := auth.NewUserRepository(db)
-	authAdapter := jwt.NewJWTAuthAdapter(cfg.JWTSecret, cfg.JWTDuration)
-	authUC := usecase.NewAuthUsecase(authAdapter, userRepo)
+	jwtAdapter := jwt.NewJWTAuthAdapter(cfg.JWTSecret, cfg.JWTDuration)
+	argon2Adapter := argon2.NewJWTAuthAdapter()
+
+	authUC := usecase.NewAuthUsecase(jwtAdapter, argon2Adapter, userRepo)
 	rateLimitRefillRate := float64(cfg.RateLimitPerMinute) / 60.0
 	rateLimitUC := usecase.NewRateLimitUsecase(
 		rateLimitAdapter,

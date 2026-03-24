@@ -1,6 +1,11 @@
 package usecase
 
-import "github.com/jackc/pgx/v5/pgxpool"
+import (
+	"context"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
 
 type pingUsecase struct {
 	db *pgxpool.Pool
@@ -12,6 +17,11 @@ func NewPingUsecase(db *pgxpool.Pool) *pingUsecase {
 	}
 }
 
-func (u *pingUsecase) Ping() string {
-	return "pong"
+func (u *pingUsecase) Ping(ctx context.Context) (string, error) {
+	select {
+	case <-time.After(10 * time.Second):
+		return "pong", nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 }

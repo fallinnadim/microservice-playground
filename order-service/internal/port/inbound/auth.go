@@ -1,15 +1,10 @@
 package inbound
 
-type LoginRequest struct {
+type LoginInput struct {
 	Email    string
 	Password string
 }
 
-type LoginResponse struct {
+type LoginOutput struct {
 	Token string
-}
-
-type RegisterRequest struct {
-	Email    string
-	Password string
 }

@@ -8,16 +8,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type RateLimitAdapter struct {
+type bucketRepository struct {
 	rdb *redis.Client
 }
 
-func NewRateLimitAdapter(rdb *redis.Client) *RateLimitAdapter {
-	return &RateLimitAdapter{rdb: rdb}
+func NewRateLimitAdapter(rdb *redis.Client) *bucketRepository {
+	return &bucketRepository{rdb: rdb}
 }
 
-func (r *RateLimitAdapter) GetBucket(ctx context.Context, key string) (float64, int64, error) {
-	val, err := r.rdb.HGetAll(ctx, key).Result()
+func (b *bucketRepository) GetBucket(ctx context.Context, key string) (float64, int64, error) {
+	val, err := b.rdb.HGetAll(ctx, key).Result()
 	if err != nil {
 		return 0, 0, err
 	}
@@ -32,8 +32,8 @@ func (r *RateLimitAdapter) GetBucket(ctx context.Context, key string) (float64, 
 	return tokens, lastRefill, nil
 }
 
-func (r *RateLimitAdapter) SetBucket(ctx context.Context, key string, tokens float64, lastRefill int64) error {
-	return r.rdb.HSet(ctx, key, map[string]any{
+func (b *bucketRepository) SetBucket(ctx context.Context, key string, tokens float64, lastRefill int64) error {
+	return b.rdb.HSet(ctx, key, map[string]any{
 		"tokens":      tokens,
 		"last_refill": lastRefill,
 	}).Err()

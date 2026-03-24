@@ -1,5 +1,7 @@
 package inbound
 
+import "context"
+
 type PingUsecase interface {
-	Ping() string
+	Ping(context.Context) (string, error)
 }

@@ -9,20 +9,20 @@ import (
 )
 
 type RateLimitUsecase struct {
-	service    outbound.RateLimitService
+	bucketRepo outbound.BucketRepository
 	capacity   int
 	refillRate float64
 }
 
-func NewRateLimitUsecase(service outbound.RateLimitService, capacity int, refillRate float64) *RateLimitUsecase {
+func NewRateLimitUsecase(bucketRepo outbound.BucketRepository, capacity int, refillRate float64) *RateLimitUsecase {
 	return &RateLimitUsecase{
-		service, capacity, refillRate,
+		bucketRepo, capacity, refillRate,
 	}
 }
 func (uc *RateLimitUsecase) Allow(ctx context.Context, userID string) (bool, error) {
 	key := "ratelimit:" + userID
 
-	tokens, lastRefill, err := uc.service.GetBucket(ctx, key)
+	tokens, lastRefill, err := uc.bucketRepo.GetBucket(ctx, key)
 	if err != nil {
 		return false, err
 	}
@@ -42,13 +42,13 @@ func (uc *RateLimitUsecase) Allow(ctx context.Context, userID string) (bool, err
 	)
 
 	if tokens < 1.0 {
-		_ = uc.service.SetBucket(ctx, key, tokens, now)
+		_ = uc.bucketRepo.SetBucket(ctx, key, tokens, now)
 		return false, nil
 	}
 
 	tokens -= 1.0
 
-	err = uc.service.SetBucket(ctx, key, tokens, now)
+	err = uc.bucketRepo.SetBucket(ctx, key, tokens, now)
 	if err != nil {
 		return false, err
 	}
