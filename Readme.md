@@ -13,9 +13,9 @@ Ensure you have the following installed on your machine:
 
 ## 🚀 How to Run
 
-Use the following commands to manage the application lifecycle:
+For ease of use, all necessary configuration files, including **`.env`** and **SSL certificates**, are already committed to this repository. You do not need to create them manually.
 
 ### 1. Start the Application
-This will build the services, start the infrastructure (Postgres, Redis, Kafka, Zookeeper), and auto-create the `order.created` topic.
+This command builds the Go services, starts the infrastructure (Postgres, Redis, Kafka, Zookeeper), and automatically initializes the `order.created` topic with 10 partitions.
 ```bash
 make run-up
