@@ -12,18 +12,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type APIResponse[T any] struct {
-	Message string `json:"message"`
-	Data    *T     `json:"data,omitempty"`
-}
-
-type Something struct {
-	Message string `json:"message"`
-}
-
 func main() {
-	if os.Getenv("ENV") != "production" {
+	if os.Getenv("ENV") == "production" {
 		_ = godotenv.Load("order-service/.env")
+	} else {
+		_ = godotenv.Load("order-service/.env.local")
 	}
 
 	cfg, err := config.Load()

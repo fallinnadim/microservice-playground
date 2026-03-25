@@ -1,10 +1,13 @@
 .PHONY: run-dev
 
 run-dev:
-	@go run ./order-service/cmd/api
+	@go run ./order-service/cmd/api & \
+	go run ./payment-service/cmd/api & \
+	go run ./inventory-worker/cmd & \
+	wait
 
-order-service-build:
-	@docker build -f order-service/Dockerfile -t order-service .
+run-up:
+	@docker-compose up -d --build
 
-order-service-run:
-	@docker run -d -p 8080:8080 --env-file order-service/.env --name order-service order-service:latest
+run-down:
+	@docker-compose down

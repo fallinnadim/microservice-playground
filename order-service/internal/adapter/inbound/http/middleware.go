@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -10,22 +11,27 @@ import (
 	"github.com/fallinnadim/order-service/internal/port/outbound"
 	"github.com/fallinnadim/order-service/internal/usecase"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/trace"
+)
+
+var (
+	ErrMissingAuthHeader     = errors.New("missing authorization header")
+	ErrInvalidHeaderFormat   = errors.New("invalid authorization format")
+	ErrInvalidOrExpiredToken = errors.New("invalid or expired token")
 )
 
 func Tracer(log *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		traceID := uuid.NewString()
-		c.Set("trace_id", traceID)
-		c.Writer.Header().Set("traceparent", traceID)
-		c.Next()
+		span := trace.SpanFromContext(c.Request.Context())
+		traceID := span.SpanContext().TraceID().String()
 		start := time.Now()
 		c.Next()
-		log.Info("incoming request",
+		log.Info("finish request",
+			slog.String("service_name", "order-service"),
 			slog.String("trace_id", traceID),
 			slog.String("path", c.Request.URL.Path),
 			slog.Int("status", c.Writer.Status()),
-			slog.Duration("duration", time.Since(start)),
+			slog.String("duration", time.Since(start).String()),
 		)
 	}
 }
@@ -46,13 +52,13 @@ func AuthRequired(authUsecase outbound.JWTAuthPort, log *slog.Logger) gin.Handle
 		authHeader := c.GetHeader("Authorization")
 
 		if authHeader == "" {
-			response.ErrorMsg(c, http.StatusUnauthorized, "missing authorization header")
+			response.ErrorMsg(c, ErrMissingAuthHeader, http.StatusUnauthorized)
 			return
 		}
 
 		const prefix = "Bearer "
 		if len(authHeader) < len(prefix) || authHeader[:len(prefix)] != prefix {
-			response.ErrorMsg(c, http.StatusUnauthorized, "invalid authorization format")
+			response.ErrorMsg(c, ErrInvalidHeaderFormat, http.StatusUnauthorized)
 			return
 		}
 
@@ -61,7 +67,7 @@ func AuthRequired(authUsecase outbound.JWTAuthPort, log *slog.Logger) gin.Handle
 		claims, err := authUsecase.ValidateToken(tokenStr)
 		if err != nil {
 			log.Warn("invalid token", "error", err)
-			response.ErrorMsg(c, http.StatusUnauthorized, "invalid or expired token")
+			response.ErrorMsg(c, ErrInvalidOrExpiredToken, http.StatusUnauthorized)
 			return
 		}
 
